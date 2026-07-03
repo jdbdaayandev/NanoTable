@@ -1,5 +1,5 @@
 /**
- * NanoTable (Secured Version)
+ * NanoTable
  * A lightweight, dependency-free Datatable library for modern browsers.
  * Built for performance, server-side/client-side data, and minimal footprint.
  */
@@ -17,7 +17,7 @@ export default class NanoTable {
         if (ths.length > 0) {
             extractedColumns = Array.from(ths).map((th, i) => ({
                 key: th.dataset.key || `col_${i}`,
-                title: this.escapeHTML(th.textContent.trim()), // Securely extract title
+                title: this.escapeHTML(th.textContent.trim()),
                 sortable: th.dataset.sortable !== 'false'
             }));
         }
@@ -29,7 +29,7 @@ export default class NanoTable {
                 const tds = tr.querySelectorAll('td');
                 tds.forEach((td, i) => {
                     if (extractedColumns[i]) {
-                        rowData[extractedColumns[i].key] = td.innerHTML; 
+                        rowData[extractedColumns[i].key] = td.innerHTML;
                         rowData[`_${extractedColumns[i].key}_text`] = td.textContent.trim();
                     }
                 });
@@ -62,16 +62,12 @@ export default class NanoTable {
       responsive: true,
       loading: false,
       fontSize: '14px',
-      filterableColumns: [],
+      theme: 'default',
       searchableColumns: [],
       ...options
     };
     
     const origCols = this.options.columns;
-    this.filterableKeys = Array.isArray(this.options.filterableColumns) 
-       ? this.options.filterableColumns.map(idx => origCols[idx]?.key).filter(Boolean)
-       : [];
-       
     this.searchableKeys = Array.isArray(this.options.searchableColumns) && this.options.searchableColumns.length > 0
        ? this.options.searchableColumns.map(idx => origCols[idx]?.key).filter(Boolean)
        : origCols.map(c => c.key);
@@ -79,9 +75,9 @@ export default class NanoTable {
     if (this.options.selectable) {
         this.options.columns.unshift({
             key: '_checkbox',
-            title: '<input type="checkbox" class="nt-select-all" />', // Trusted HTML
+            title: '<input type="checkbox" class="nt-select-all" />',
             sortable: false,
-            render: () => `<input type="checkbox" class="nt-select-row" />` // Trusted HTML
+            render: (val, row) => `<input type="checkbox" class="nt-select-row" />`
         });
     }
 
@@ -97,7 +93,6 @@ export default class NanoTable {
     this.state = {
       page: 1,
       search: '',
-      colFilters: {},
       sortColumn: null,
       sortDesc: false,
       total: this.options.data.length,
@@ -108,7 +103,6 @@ export default class NanoTable {
     this.init();
   }
 
-  // SECURITY: Universal HTML Escaper to prevent XSS
   escapeHTML(str) {
       if (str === null || str === undefined) return '';
       return String(str)
@@ -129,9 +123,11 @@ export default class NanoTable {
 
   renderShell() {
     if (!this.container) return;
-    // Base structure using trusted static templates
+
+    const themeClass = this.options.theme !== 'default' ? `nt-theme-${this.escapeHTML(this.options.theme)}` : '';
+
     this.container.innerHTML = `
-      <div class="nt-wrapper" style="--nt-font-size: ${this.escapeHTML(this.options.fontSize)};">
+      <div class="nt-wrapper ${themeClass}" style="--nt-font-size: ${this.escapeHTML(this.options.fontSize)};">
         <div class="nt-header">
           <div class="nt-actions">
             <div class="nt-length">
@@ -176,16 +172,6 @@ export default class NanoTable {
                   <th data-index="${i}" class="${col.sortable !== false ? 'nt-sortable' : ''}">
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                        <div>${col.title} <span class="nt-sort-icon"></span></div>
-                       ${this.filterableKeys.includes(col.key) ? `
-                         <div class="nt-col-filter-wrap" onclick="event.stopPropagation()">
-                           <button class="nt-col-filter-btn" data-col="${this.escapeHTML(col.key)}" title="Filter this column">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-                           </button>
-                           <div class="nt-col-filter-input-wrap">
-                             <input type="text" class="nt-col-filter-input" data-col="${this.escapeHTML(col.key)}" placeholder="Filter..." />
-                           </div>
-                         </div>
-                       ` : ''}
                     </div>
                   </th>
                 `).join('')}
@@ -205,11 +191,11 @@ export default class NanoTable {
       </div>
     `;
     
-    // CSS append logic remains the same (omitted CSS string for brevity, paste your original CSS here)
     if (!document.getElementById('nt-styles')) {
       const style = document.createElement('style');
       style.id = 'nt-styles';
       style.innerHTML = `
+        /* BASE STYLES */
         .nt-wrapper { font-family: ui-sans-serif, system-ui, sans-serif; color: #0f172a; font-size: var(--nt-font-size, 14px); background: #fff; padding: 1.5em; border-radius: 12px; box-sizing: border-box; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); border: 1px solid #e2e8f0; }
         .nt-wrapper * { box-sizing: border-box; }
         .nt-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em; flex-wrap: wrap; gap: 1em; }
@@ -223,7 +209,6 @@ export default class NanoTable {
         .nt-search { border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.5em 0.8em 0.5em 2.4em; outline: none; background: #fff; color: #0f172a; font-family: inherit; font-size: 0.9em; transition: border-color 0.2s, box-shadow 0.2s; width: 100%; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
         .nt-search:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
         .nt-search::placeholder { color: #94a3b8; }
-        
         .nt-dropdown-wrap { position: relative; }
         .nt-dropdown-menu { position: absolute; top: 100%; right: 0; margin-top: 4px; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); display: none; z-index: 10; min-width: 100px; overflow: hidden; }
         .nt-dropdown-menu.show { display: block; }
@@ -232,24 +217,16 @@ export default class NanoTable {
         .nt-dropdown-btn { display: flex; align-items: center; justify-content: space-between; gap: 0.4em; background: #fff; border: 1px solid #cbd5e1; padding: 0.5em 1em; border-radius: 6px; cursor: pointer; color: #0f172a; font-weight: 600; font-size: 0.9em; transition: all 0.2s; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
         .nt-dropdown-btn:hover { background: #f8fafc; border-color: #94a3b8; }
         .nt-dropdown-btn svg { color: #64748b; }
-        
         .nt-table-container { position: relative; overflow-x: auto; margin-bottom: 1em; border: 1px solid #e2e8f0; border-radius: 8px; }
         .nt-loader { position: absolute; inset: 0; background: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; z-index: 5; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
         .nt-loader.show { opacity: 1; pointer-events: auto; }
         .nt-spinner { width: 32px; height: 32px; border: 3px solid #cbd5e1; border-top-color: #3b82f6; border-radius: 50%; animation: nt-spin 1s linear infinite; }
         @keyframes nt-spin { to { transform: rotate(360deg); } }
-        
         .nt-table { width: 100%; border-collapse: collapse; clear: both; border-spacing: 0; }
-        .nt-table th, .nt-table td { padding: 1em 1.5em; text-align: left; white-space: nowrap; }
+        .nt-table th, .nt-table td { padding: 1em 1.5em; text-align: left; }
+        .nt-table td { white-space: normal; word-break: break-word; line-height: 1.5; }
+        .nt-table th { white-space: nowrap; }
         .nt-table th { border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #475569; position: relative; background: #f8fafc; text-transform: uppercase; font-size: 0.85em; letter-spacing: 0.05em; overflow: visible; }
-        .nt-col-filter-wrap { position: relative; display: inline-block; margin-left: 0.5em; }
-        .nt-col-filter-btn { border: none; background: transparent; color: #94a3b8; cursor: pointer; padding: 2px; border-radius: 4px; display: inline-flex; transition: all 0.2s; }
-        .nt-col-filter-btn:hover { background: #e2e8f0; color: #3b82f6; }
-        .nt-col-filter-btn.active { color: #3b82f6; }
-        .nt-col-filter-input-wrap { position: absolute; top: 100%; right: 0; margin-top: 4px; background: #fff; border: 1px solid #cbd5e1; padding: 0.5em; border-radius: 6px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); display: none; z-index: 20; font-weight: normal; text-transform: none; letter-spacing: normal; }
-        .nt-col-filter-input-wrap.show { display: block; }
-        .nt-col-filter-input { border: 1px solid #cbd5e1; border-radius: 4px; padding: 0.25em 0.5em; font-size: 13px; outline: none; width: 140px; }
-        .nt-col-filter-input:focus { border-color: #3b82f6; }
         .nt-table td { border-bottom: 1px solid #f1f5f9; color: #334155; }
         .nt-table tbody tr:last-child td { border-bottom: none; }
         .nt-table tbody tr { background-color: #fff; transition: background-color 0.15s; }
@@ -258,7 +235,6 @@ export default class NanoTable {
         .nt-sortable:hover { background: #f1f5f9; color: #0f172a; }
         .nt-sort-icon { position: absolute; right: 1em; top: 50%; transform: translateY(-50%); opacity: 0.3; font-size: 0.7em; }
         .nt-sortable:hover .nt-sort-icon { opacity: 0.8; }
-        
         .nt-table th:first-child, .nt-table td:first-child { width: 40px; text-align: center; padding-left: 1em; padding-right: 0.5em; }
         .nt-select-all, .nt-select-row { cursor: pointer; width: 16px; height: 16px; accent-color: #3b82f6; }
         .nt-expand-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; color: #3b82f6; transition: all 0.2s; padding: 0; outline: none; }
@@ -271,7 +247,6 @@ export default class NanoTable {
         .nt-child-detail { display: flex; align-items: baseline; gap: 1em; }
         .nt-child-title { font-weight: 600; color: #475569; min-width: 120px; }
         .nt-child-value { color: #0f172a; word-break: break-word; }
-        
         .nt-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 0.5em; color: #64748b; flex-wrap: wrap; gap: 1em; }
         .nt-pagination { display: flex; align-items: center; gap: 0.25em; }
         .nt-pagination button { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; min-width: 2.2em; height: 2.2em; padding: 0 0.5em; font-weight: 500; font-size: 0.9em; text-align: center; text-decoration: none !important; cursor: pointer; color: #475569; border: 1px solid transparent; border-radius: 6px; background: transparent; transition: all 0.2s; }
@@ -281,7 +256,6 @@ export default class NanoTable {
         .nt-page-btn { padding: 0 0.5em; min-width: 2.2em; height: 2.2em; cursor: pointer; border: 1px solid transparent; background: transparent; border-radius: 6px; color: #475569; font-weight: 500; font-size: 0.9em; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; }
         .nt-page-btn:hover:not(.active) { background: #f1f5f9; color: #0f172a; }
         .nt-page-btn.active { background: #3b82f6; color: #fff; font-weight: 600; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
-        
         @media (max-width: 640px) {
           .nt-header { flex-direction: column; align-items: stretch; gap: 1em; }
           .nt-search-wrap { width: 100%; }
@@ -289,6 +263,49 @@ export default class NanoTable {
           .nt-footer { flex-direction: column; align-items: center; gap: 1em; }
           .nt-page-info { display: none; }
         }
+
+        /* =========================================
+           🌙 Theme 1: Midnight Dark 
+        ========================================= */
+        .nt-wrapper.nt-theme-dark { background: #1e293b; color: #f8fafc; border-color: #334155; }
+        .nt-theme-dark .nt-header { color: #cbd5e1; }
+        .nt-theme-dark .nt-table th { background: #0f172a; color: #94a3b8; border-color: #334155; }
+        .nt-theme-dark .nt-table td { color: #e2e8f0; border-color: #334155; }
+        .nt-theme-dark .nt-table tbody tr { background: #1e293b; }
+        .nt-theme-dark .nt-table tbody tr:hover { background: #334155; }
+        .nt-theme-dark .nt-search, 
+        .nt-theme-dark .nt-page-size,
+        .nt-theme-dark .nt-dropdown-btn { background-color: #0f172a; color: #f8fafc; border-color: #475569; }
+        .nt-theme-dark .nt-dropdown-menu { background: #1e293b; border-color: #475569; }
+        .nt-theme-dark .nt-dropdown-item { color: #f8fafc; }
+        .nt-theme-dark .nt-dropdown-item:hover { background: #334155; }
+        .nt-theme-dark .nt-page-btn { color: #94a3b8; }
+        .nt-theme-dark .nt-page-btn:hover:not(.active) { background: #334155; color: #f8fafc; }
+        .nt-theme-dark .nt-child-row { background-color: #0f172a !important; }
+        .nt-theme-dark .nt-child-value, .nt-theme-dark .nt-child-title { color: #f8fafc; }
+
+        /* =========================================
+           🏢 Theme 2: Corporate Indigo 
+        ========================================= */
+        .nt-wrapper.nt-theme-indigo { border-top: 4px solid #4f46e5; border-radius: 8px; }
+        .nt-theme-indigo .nt-table th { background: #4f46e5; color: #ffffff; border-bottom: none; }
+        .nt-theme-indigo .nt-sort-icon { color: #ffffff; opacity: 0.7; }
+        .nt-theme-indigo .nt-table tbody tr:nth-child(even) { background-color: #f8fafc; }
+        .nt-theme-indigo .nt-table tbody tr:hover { background-color: #e0e7ff; }
+        .nt-theme-indigo .nt-page-btn.active { background: #4f46e5; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3); }
+
+        /* =========================================
+           ☁️ Theme 3: Soft Material 
+        ========================================= */
+        .nt-wrapper.nt-theme-material { border: none; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); border-radius: 16px; }
+        .nt-theme-material .nt-search, 
+        .nt-theme-material .nt-page-size,
+        .nt-theme-material .nt-dropdown-btn { border-radius: 20px; background: #f1f5f9; border: 1px solid transparent; }
+        .nt-theme-material .nt-search:focus { background: #ffffff; border-color: #0ea5e9; }
+        .nt-theme-material .nt-table th { background: transparent; border-bottom: 2px solid #e2e8f0; text-transform: capitalize; font-size: 0.95em; }
+        .nt-theme-material .nt-table td { border-bottom: 1px dashed #e2e8f0; }
+        .nt-theme-material .nt-page-btn { border-radius: 50%; min-width: 2.5em; height: 2.5em; }
+        .nt-theme-material .nt-page-btn.active { background: #0ea5e9; }
       `;
       document.head.appendChild(style);
     }
@@ -317,102 +334,67 @@ export default class NanoTable {
   }
 
   bindEvents() {
-    // Pagination sizing
     if (this.dom.pageSizeBtn && this.dom.pageSizeMenu) {
       this.dom.pageSizeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.dom.pageSizeMenu.classList.toggle('show');
       });
-      document.addEventListener('click', () => this.dom.pageSizeMenu.classList.remove('show'));
+      document.addEventListener('click', () => {
+        this.dom.pageSizeMenu.classList.remove('show');
+      });
       this.dom.pageSizeItems.forEach(item => {
         item.addEventListener('click', (e) => {
-           this.options.pageSize = parseInt(e.currentTarget.dataset.value, 10); // Type cast
-           if (this.dom.pageSizeText) this.dom.pageSizeText.textContent = this.options.pageSize;
+           this.options.pageSize = parseInt(e.currentTarget.dataset.value, 10);
+           if (this.dom.pageSizeText) {
+             this.dom.pageSizeText.textContent = this.options.pageSize;
+           }
            this.state.page = 1;
            this.loadData();
         });
       });
     }
 
-    // Global Search
     if (this.dom.search) {
       let timeout;
       this.dom.search.addEventListener('input', (e) => {
         clearTimeout(timeout);
         timeout = setTimeout(() => {
-          this.state.search = e.target.value.trim(); // Trim extra whitespace
+          this.state.search = e.target.value.trim();
           this.state.page = 1;
           this.loadData();
         }, 300);
       });
     }
 
-    // Column Filters
-    const colFilterBtns = this.container.querySelectorAll('.nt-col-filter-btn');
-    const colFilterWraps = this.container.querySelectorAll('.nt-col-filter-input-wrap');
-    
-    colFilterBtns.forEach(btn => {
-       btn.addEventListener('click', (e) => {
-           e.stopPropagation();
-           const wrap = btn.nextElementSibling;
-           const isShowing = wrap.classList.contains('show');
-           colFilterWraps.forEach(w => w.classList.remove('show'));
-           if (!isShowing) {
-               wrap.classList.add('show');
-               const input = wrap.querySelector('.nt-col-filter-input');
-               if (input) input.focus();
-           }
-       });
-    });
-    
-    document.addEventListener('click', () => colFilterWraps.forEach(w => w.classList.remove('show')));
-    
-    const colFilterInputs = this.container.querySelectorAll('.nt-col-filter-input');
-    colFilterInputs.forEach(input => {
-       let timeout;
-       input.addEventListener('click', (e) => e.stopPropagation());
-       input.addEventListener('input', (e) => {
-           clearTimeout(timeout);
-           timeout = setTimeout(() => {
-               const val = e.target.value.trim();
-               const col = e.target.dataset.col;
-               if (val) {
-                   this.state.colFilters[col] = val;
-                   e.target.closest('.nt-col-filter-wrap').querySelector('.nt-col-filter-btn').classList.add('active');
-               } else {
-                   delete this.state.colFilters[col];
-                   e.target.closest('.nt-col-filter-wrap').querySelector('.nt-col-filter-btn').classList.remove('active');
-               }
-               this.state.page = 1;
-               this.loadData();
-           }, 300);
-       });
-    });
-
-    // Exports
     if (this.dom.exportBtn && this.dom.exportMenu) {
       this.dom.exportBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.dom.exportMenu.classList.toggle('show');
       });
-      document.addEventListener('click', () => this.dom.exportMenu.classList.remove('show'));
+      document.addEventListener('click', () => {
+        this.dom.exportMenu.classList.remove('show');
+      });
       this.dom.exportItems.forEach(item => {
-        item.addEventListener('click', (e) => this.exportFile(e.currentTarget.dataset.type));
+        item.addEventListener('click', (e) => {
+           const type = e.currentTarget.dataset.type;
+           this.exportFile(type);
+        });
       });
     }
 
-    // Checkboxes
     if (this.options.selectable && this.dom.thead) {
         const selectAll = this.dom.thead.querySelector('.nt-select-all');
         if (selectAll) {
             selectAll.addEventListener('change', (e) => {
                 const checked = e.target.checked;
-                this.dom.tbody.querySelectorAll('.nt-select-row').forEach(row => row.checked = checked);
+                const rows = this.dom.tbody.querySelectorAll('.nt-select-row');
+                rows.forEach(row => {
+                    row.checked = checked;
+                });
             });
         }
     }
 
-    // Sorting
     this.dom.ths.forEach(th => {
       th.addEventListener('click', () => {
         const index = th.dataset.index;
@@ -420,7 +402,12 @@ export default class NanoTable {
         const key = col.key;
         
         if (this.state.sortColumn === key) {
-          this.state.sortDesc = !this.state.sortDesc;
+          if (this.state.sortDesc) {
+            this.state.sortColumn = null;
+            this.state.sortDesc = false;
+          } else {
+            this.state.sortDesc = true;
+          }
         } else {
           this.state.sortColumn = key;
           this.state.sortDesc = false;
@@ -430,17 +417,17 @@ export default class NanoTable {
           const icon = t.querySelector('.nt-sort-icon');
           if (icon) icon.innerHTML = '';
         });
-        
         if (this.state.sortColumn) {
           const icon = th.querySelector('.nt-sort-icon');
-          if (icon) icon.innerHTML = this.state.sortDesc ? '▾' : '▴';
+          if (icon) {
+            icon.innerHTML = this.state.sortDesc ? '▾' : '▴';
+          }
         }
 
         this.loadData();
       });
     });
 
-    // Pagination Actions
     this.dom.prev.addEventListener('click', () => {
       if (this.state.page > 1) {
         this.state.page--;
@@ -456,7 +443,6 @@ export default class NanoTable {
       }
     });
 
-    // Expand Rows (Responsive child rows)
     if (this.dom.tbody) {
        this.dom.tbody.addEventListener('click', (e) => {
            const expandBtn = e.target.closest('.nt-expand-btn');
@@ -465,7 +451,9 @@ export default class NanoTable {
                if (expandBtn.classList.contains('open')) {
                    expandBtn.classList.remove('open');
                    const next = tr.nextElementSibling;
-                   if (next && next.classList.contains('nt-child-row')) next.remove();
+                   if (next && next.classList.contains('nt-child-row')) {
+                       next.remove();
+                   }
                } else {
                    expandBtn.classList.add('open');
                    const index = parseInt(tr.dataset.index, 10);
@@ -475,7 +463,6 @@ export default class NanoTable {
                    this.hiddenColumns.forEach(i => {
                        const col = this.options.columns[i];
                        let val = row[`_${col.key}_text`] !== undefined ? row[`_${col.key}_text`] : row[col.key];
-                       // SECURITY: Escape child row data unless rendered via custom function
                        if (col.render) {
                            val = col.render(val, row);
                        } else {
@@ -495,7 +482,6 @@ export default class NanoTable {
     }
   }
 
-  // (initResponsive and checkResponsive remain functionally identical, included for completion)
   initResponsive() {
     this.hiddenColumns = [];
     if (!this.options.responsive) return;
@@ -520,37 +506,53 @@ export default class NanoTable {
     if (!table || !tableContainer) return;
 
     const ths = table.querySelectorAll('th');
+    
+    // 1. Reset all data columns to visible
     this.hiddenColumns = [];
     ths.forEach(th => th.style.display = '');
     const rows = table.querySelectorAll('tbody tr:not(.nt-child-row)');
-    rows.forEach(tr => { Array.from(tr.children).forEach(td => td.style.display = ''); });
+    rows.forEach(tr => {
+       Array.from(tr.children).forEach(td => td.style.display = '');
+    });
     table.querySelectorAll('.nt-child-row').forEach(row => row.remove());
     
-    if (ths[0]) ths[0].style.display = '';
+    // 2. HIDE the expand column (+) by default
+    if (ths[0]) ths[0].style.display = 'none';
     rows.forEach(tr => {
-       if (tr.children[0]) tr.children[0].style.display = '';
+       if (tr.children[0]) tr.children[0].style.display = 'none';
        const btn = tr.children[0]?.querySelector('.nt-expand-btn');
        if (btn) btn.classList.remove('open');
     });
 
+    // 3. Let CSS try to wrap the text. Then, check if it STILL overflows.
     let isOverflowing = () => tableContainer.scrollWidth > tableContainer.clientWidth;
     
     if (isOverflowing()) {
+       // 4. It doesn't fit! Start hiding columns from right to left.
        for (let i = this.options.columns.length - 1; i >= 0; i--) {
            const col = this.options.columns[i];
            if (col.key === '_expand' || col.key === '_checkbox') continue;
            
            this.hiddenColumns.push(i);
-           if (ths[i]) ths[i].style.display = 'none';
-           rows.forEach(tr => { if (tr.children[i]) tr.children[i].style.display = 'none'; });
            
-           if (!isOverflowing()) break;
+           if (ths[i]) ths[i].style.display = 'none';
+           rows.forEach(tr => {
+               if (tr.children[i]) tr.children[i].style.display = 'none';
+           });
+           
+           // Check if hiding that column fixed the overflow
+           if (!isOverflowing()) {
+               break; 
+           }
        }
     }
     
-    if (this.hiddenColumns.length === 0) {
-       if (ths[0]) ths[0].style.display = 'none';
-       rows.forEach(tr => { if (tr.children[0]) tr.children[0].style.display = 'none'; });
+    // 5. If we were forced to hide ANY columns, reveal the expand (+) column
+    if (this.hiddenColumns.length > 0) {
+       if (ths[0]) ths[0].style.display = '';
+       rows.forEach(tr => {
+           if (tr.children[0]) tr.children[0].style.display = '';
+       });
     }
   }
 
@@ -563,7 +565,6 @@ export default class NanoTable {
           page: parseInt(this.state.page, 10),
           pageSize: parseInt(this.options.pageSize, 10),
           search: this.state.search,
-          colFilters: this.state.colFilters,
           sortColumn: this.state.sortColumn,
           sortDesc: Boolean(this.state.sortDesc)
         };
@@ -582,11 +583,7 @@ export default class NanoTable {
           if (method === 'GET') {
              const urlObj = new URL(url, window.location.origin);
              Object.keys(params).forEach(k => {
-               if (k === 'colFilters') {
-                   Object.keys(params[k]).forEach(colKey => {
-                       urlObj.searchParams.append(`filter_${colKey}`, params[k][colKey]);
-                   });
-               } else if (params[k] !== null && params[k] !== undefined && params[k] !== '') {
+               if (params[k] !== null && params[k] !== undefined && params[k] !== '') {
                  urlObj.searchParams.append(k, params[k]);
                }
              });
@@ -605,17 +602,7 @@ export default class NanoTable {
         console.error('NanoTable data fetch failed:', e);
       }
     } else {
-      // Local Client-side filtering logic remains untouched
       let data = [...this.options.data];
-
-      if (Object.keys(this.state.colFilters).length > 0) {
-        data = data.filter(row => {
-            return Object.entries(this.state.colFilters).every(([colKey, filterVal]) => {
-                const val = row[`_${colKey}_text`] !== undefined ? row[`_${colKey}_text`] : row[colKey];
-                return val != null && String(val).toLowerCase().includes(filterVal.toLowerCase());
-            });
-        });
-      }
 
       if (this.state.search) {
         const query = this.state.search.toLowerCase();
@@ -623,7 +610,7 @@ export default class NanoTable {
           return this.options.columns.some(col => {
             if (col.key === '_checkbox' || col.key === '_expand') return false;
             if (!this.searchableKeys.includes(col.key)) return false;
-            const val = row[`_${col.key}_text`] !== undefined ? row[`_${col.key}_text`] : row[col.key];
+            const val = row[`_${col.key}_text`] !== undefined ? row[`_${col.key}_text`] : row[colKey];
             return val != null && String(val).toLowerCase().includes(query);
           });
         });
@@ -661,8 +648,6 @@ export default class NanoTable {
       return;
     }
 
-    // SECURITY: Render rows securely. If a render() function exists, trust it. 
-    // Otherwise, rigorously escape the raw data.
     this.dom.tbody.innerHTML = this.state.displayData.map((row, i) => {
       return `<tr data-index="${i}">
         ${this.options.columns.map(col => {
@@ -717,7 +702,7 @@ export default class NanoTable {
            pagesHtml += `<button class="nt-page-btn ${i === this.state.page ? 'active' : ''}" data-page="${i}">${i}</button>`;
         }
     }
-    this.dom.pageInfo.innerHTML = pagesHtml; // Safe because it's generating strict numbers
+    this.dom.pageInfo.innerHTML = pagesHtml;
     
     this.dom.pageInfo.querySelectorAll('.nt-page-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -732,7 +717,6 @@ export default class NanoTable {
       const dataToExport = this.options.serverSide ? this.state.displayData : this.options.data;
       const exportColumns = this.options.columns.filter(c => c.key !== '_checkbox' && c.key !== '_expand');
       
-      // SECURITY: Escape HTML inside exports to prevent DOM injection via files
       if (type === 'pdf') {
          const printWindow = window.open('', '_blank');
          printWindow.document.write('<html><head><title>Export</title><style>table {width:100%;border-collapse:collapse} th,td {border:1px solid #ccc;padding:8px;text-align:left;font-family:sans-serif}</style></head><body>');
@@ -743,7 +727,7 @@ export default class NanoTable {
             printWindow.document.write('<tr>');
             exportColumns.forEach(c => {
                 let val = row[`_${c.key}_text`] !== undefined ? row[`_${c.key}_text`] : row[c.key];
-                printWindow.document.write(`<td>${this.escapeHTML(val)}</td>`);
+                printWindow.document.write(`<td>${this.escapeHTML(val !== undefined && val !== null ? val : '')}</td>`);
             });
             printWindow.document.write('</tr>');
          });
@@ -764,7 +748,7 @@ export default class NanoTable {
             return exportColumns.map(c => {
               let val = row[`_${c.key}_text`] !== undefined ? row[`_${c.key}_text`] : row[c.key];
               val = val !== undefined && val !== null ? val : '';
-              return `"${String(val).replace(/"/g, '""')}"`; // CSV inherently text, just needs quote escaping
+              return `"${String(val).replace(/"/g, '""')}"`;
             }).join(',');
           });
           content = [headers, ...rows].join('\n');
@@ -781,7 +765,7 @@ export default class NanoTable {
               html += '<tr>';
               exportColumns.forEach(c => {
                   let val = row[`_${c.key}_text`] !== undefined ? row[`_${c.key}_text`] : row[c.key];
-                  html += `<td>${this.escapeHTML(val)}</td>`;
+                  html += `<td>${this.escapeHTML(val !== undefined && val !== null ? val : '')}</td>`;
               });
               html += '</tr>';
           });
